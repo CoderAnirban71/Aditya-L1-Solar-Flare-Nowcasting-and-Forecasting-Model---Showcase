@@ -199,17 +199,25 @@ def update_state():
 
 # ── BACKGROUND LOOP ──────────────────────────────────────────
 def replay_loop():
+    last_tick = time_mod.time()
+    step_accum = 0.0
     while True:
+        current_tick = time_mod.time()
+        elapsed = current_tick - last_tick
+        last_tick = current_tick
+
         if state["playing"]:
+            step_accum += elapsed * state["speed"]
+            steps = int(step_accum)
+            if steps > 0:
+                step_accum -= steps
+                state["idx"] = min(state["idx"] + steps, len(master) - 1)
             update_state()
-            state["idx"] = min(
-                state["idx"] + state["speed"],
-                len(master) - 1
-            )
             if state["idx"] >= len(master) - 1:
                 state["playing"] = False
         else:
             update_state()
+
         time_mod.sleep(0.1)
 
 thread = threading.Thread(target=replay_loop, daemon=True)

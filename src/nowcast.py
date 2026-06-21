@@ -20,6 +20,33 @@ def load_data():
     catalog["end_time"]   = pd.to_datetime(
         (catalog["end_mjd"] - 40587.0) * 86400, unit="s", origin="unix"
     )
+
+    # --- BUG FIX: Load Engineered Features ---
+    # We must load triggered_data.csv so the forecaster has all 26 features.
+    TRIGGERED_PATH = PROJECT_ROOT / "outputs" / "triggered_data.csv"
+    if TRIGGERED_PATH.exists():
+        triggered = pd.read_csv(TRIGGERED_PATH)
+        SIG_FEATURES = [
+            "CDTE_5_20keV_SIG", "CDTE_20_30keV_SIG", "CDTE_30_40keV_SIG", "CDTE_40_60keV_SIG",
+            "CDTE_1p8_90keV_SIG", "CZT_20_40keV_SIG", "CZT_40_60keV_SIG", "CZT_60_80keV_SIG",
+            "CZT_80_150keV_SIG", "CZT_18_160keV_SIG", "SOLEXS_SIG", "HARDNESS_RATIO", "ANY_TRIG"
+        ]
+        # Only merge the columns we actually need to save RAM and avoid duplicates
+        for col in SIG_FEATURES:
+            if col in triggered.columns:
+                master[col] = triggered[col].fillna(0)
+
+    # Compute rate features dynamically
+    if "CDTE_1p8_90keV_CTR" in master.columns:
+        master["cdte_rate"] = master["CDTE_1p8_90keV_CTR"].diff().fillna(0)
+    else:
+        master["cdte_rate"] = 0.0
+
+    if "SOLEXS_COUNTS" in master.columns:
+        master["slx_rate"]  = master["SOLEXS_COUNTS"].diff().fillna(0)
+    else:
+        master["slx_rate"] = 0.0
+
     return master, catalog
 
 def get_flare_at(timestamp, catalog, buffer_sec=300):
