@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solar Flare Monitor — ISRO Aditya-L1</title>
+  <link rel="stylesheet" href="/dashboard/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+<body>
+
+<!-- ── SIDEBAR ─────────────────────────────────────── -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/b/bd/Indian_Space_Research_Organisation_Logo.svg" alt="ISRO">
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-item active" id="nav-dashboard">
+      <span class="nav-icon">▦</span>
+      <span class="nav-label">DASHBOARD</span>
+    </div>
+    <div class="nav-item" id="nav-model">
+      <span class="nav-icon">⚙</span>
+      <span class="nav-label">MODEL CONFIG</span>
+    </div>
+    <div class="nav-item" id="nav-alerts">
+      <span class="nav-icon">🔔</span>
+      <span class="nav-label">ALERT LOGS</span>
+    </div>
+    <div class="nav-item" id="nav-data">
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">DATA EXPLORER</span>
+    </div>
+    <div class="nav-item" id="nav-reports">
+      <span class="nav-icon">📄</span>
+      <span class="nav-label">REPORTS</span>
+    </div>
+  </nav>
+</div>
+
+<!-- ── MAIN ────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <span class="header-title">SOLAR FLARE MONITORING & FORECASTING DASHBOARD — ISRO ADITYA-L1 MISSION</span>
+    </div>
+    <div class="header-right">
+      <div class="utc-time" id="utc-display">UTC: --:--:--</div>
+      <div class="hackathon-badge">🚀 BHARTIYA ANTARIKSH HACKATHON</div>
+    </div>
+  </div>
+
+  <!-- CONTROLS BAR -->
+  <div class="controls-bar">
+    <button class="ctrl-btn" id="btn-play" onclick="togglePlay()">▶ Play</button>
+    <button class="ctrl-btn" id="btn-reset" onclick="resetReplay()">⏮ Reset</button>
+    <div class="speed-control">
+      <span class="ctrl-label">Speed:</span>
+      <select id="speed-select" onchange="setSpeed(this.value)">
+        <option value="10">10x</option>
+        <option value="30">30x</option>
+        <option value="60" selected>60x</option>
+        <option value="120">120x</option>
+        <option value="300">300x</option>
+        <option value="600">600x</option>
+      </select>
+    </div>
+    <div class="seek-control">
+      <span class="ctrl-label">Timeline:</span>
+      <input type="range" id="timeline-slider" min="1000" max="3567267"
+             value="1000" step="1000" oninput="seekTo(this.value)">
+      <span class="ctrl-label" id="progress-pct">0.0%</span>
+    </div>
+  </div>
+
+  <!-- CONTENT GRID -->
+  <div class="content-grid">
+
+    <!-- LEFT: GRAPHS -->
+    <div class="graphs-section">
+      <div class="graph-card">
+        <div class="graph-title">
+          SoLEXS <span class="graph-sub">(SOFT X-RAY FLUX)</span>
+          <span class="graph-val" id="soft-val">-- cts/s</span>
+        </div>
+        <canvas id="softChart"></canvas>
+      </div>
+      <div class="graph-card">
+        <div class="graph-title">
+          HEL1OS <span class="graph-sub">(HARD X-RAY FLUX)</span>
+          <span class="graph-val" id="hard-val">-- cts/s</span>
+        </div>
+        <canvas id="hardChart"></canvas>
+      </div>
+    </div>
+
+    <!-- RIGHT: ALERTS PANEL -->
+    <div class="alerts-section">
+
+      <!-- LIVE STATUS -->
+      <div class="alert-header">⚡ LIVE ANALYSIS & ALERTS</div>
+
+      <!-- MAIN ALERT BOX -->
+      <div class="main-alert-box" id="main-alert-box">
+        <div class="alert-bulb" id="alert-bulb">💡</div>
+        <div class="alert-status" id="alert-status">CURRENT STATUS:</div>
+        <div class="alert-level" id="alert-level">QUIET</div>
+      </div>
+
+      <!-- NOWCAST INFO -->
+      <div class="panel-section">
+        <div class="panel-section-title">NOWCAST (REAL-TIME DETECTION)</div>
+        <div class="info-grid">
+          <div class="info-row">
+            <span class="info-label">Flare Class</span>
+            <span class="info-val orange" id="nc-class">--</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Significance</span>
+            <span class="info-val" id="nc-sig">--</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Hardness Ratio</span>
+            <span class="info-val" id="nc-hr">--</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Bands Triggered</span>
+            <span class="info-val" id="nc-bands">--</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Detection Time</span>
+            <span class="info-val" id="nc-time">--</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- FORECAST INFO -->
+      <div class="panel-section">
+        <div class="panel-section-title">FORECAST (PREDICTION)</div>
+        <div class="forecast-gauge-row">
+          <div class="gauge-wrap">
+            <canvas id="gaugeCanvas" width="140" height="80"></canvas>
+            <div class="gauge-label">FORECAST</div>
+          </div>
+          <div class="forecast-info">
+            <div class="info-row">
+              <span class="info-label">Forecast Class</span>
+              <span class="info-val orange" id="fc-class">--</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Probability</span>
+              <span class="info-val" id="fc-prob">--%</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Confidence</span>
+              <span class="info-val" id="fc-conf">--</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Est. Lead Time</span>
+              <span class="info-val orange" id="fc-lead">~-- MIN</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Predicted At</span>
+              <span class="info-val" id="fc-time">--:--:--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- UPCOMING FLARES ROLLING CARDS -->
+        <div class="upcoming-label">UPCOMING DETECTIONS</div>
+        <div class="upcoming-cards" id="upcoming-cards">
+          <div class="upcoming-empty">No upcoming flares in next 30 min</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- BOTTOM: EVENT LOG -->
+  <div class="bottom-grid">
+    <div class="event-log-section">
+      <div class="section-title">📋 AUTOMATED EVENT LOG (DATABASE)</div>
+      <table class="event-table" id="event-table">
+        <thead>
+          <tr>
+            <th>Event ID</th>
+            <th>Start Time (UTC)</th>
+            <th>Peak Time (UTC)</th>
+            <th>Duration (s)</th>
+            <th>Bands</th>
+            <th>Peak Sig (σ)</th>
+            <th>Hardness Ratio</th>
+            <th>Alert Class</th>
+          </tr>
+        </thead>
+        <tbody id="event-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- end main -->
+
+<script src="/dashboard/app.js"></script>
+</body>
+</html>
