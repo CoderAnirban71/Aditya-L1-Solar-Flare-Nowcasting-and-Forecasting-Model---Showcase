@@ -12,7 +12,7 @@ import pandas as pd
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(Path(__file__).parent))
 
-from data_ingrestion       import build_master
+from data_ingestion       import build_master
 from statistical_trigger   import run_triggering
 from morphological_filter  import run_morphological_filter
 from benchmarking          import download_goes_flare_list, match_flares
