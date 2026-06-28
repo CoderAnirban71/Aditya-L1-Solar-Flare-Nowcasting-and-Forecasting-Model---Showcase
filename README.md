@@ -1,6 +1,6 @@
 # Aditya-L1 Solar Flare Nowcasting & Forecasting
 
-> **ISRO Bhartiya Antariksh Hackathon 2026 | Problem Statement 15 **
+> **ISRO Bhartiya Antariksh Hackathon 2026 | Problem Statement 15**
 
 > ⚠️ Full source code will be made public after the ISRO Bhartiya Antariksh Hackathon 2026.
 
@@ -16,7 +16,7 @@ Solar flares are sudden bursts of radiation from the Sun that disrupt satellite 
 
 ## Live Dashboard Preview
 
-![Dashboard Screenshot](dashboard_screenshot.png)
+![Dashboard Screenshot](Dashboard_screenshot.png)
 
 > *Real-time replay of July 2024 Aditya-L1 data showing SoLEXS soft X-ray and HEL1OS hard X-ray flux with live nowcast alerts and ML forecast probability.*
 
