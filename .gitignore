@@ -1,0 +1,26 @@
+# Virtual environments
+gpu_env/
+venv/
+env/
+
+# IDE configs
+.idea/
+.vscode/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Data (raw + generated)
+data/HEL1OS_satalite_data/
+data/SOLEXS_satalite_data/
+outputs/*.csv
+
+# Model files (large binaries)
+outputs/*.pth
+outputs/*.pkl
+
+
+# OS files
+.DS_Store
+Thumbs.db

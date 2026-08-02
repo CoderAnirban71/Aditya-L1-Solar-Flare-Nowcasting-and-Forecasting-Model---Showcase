@@ -1,140 +1,261 @@
-# Aditya-L1 Solar Flare Nowcasting & Forecasting
+# Aditya-L1 Solar Flare Nowcasting & Forecasting System
 
-> **ISRO Bhartiya Antariksh Hackathon 2026 | Problem Statement 15**
-
-> ⚠️ Full source code will be made public after the ISRO Bhartiya Antariksh Hackathon 2026.
-
----
-
-## What is This Project?
-
-Solar flares are sudden bursts of radiation from the Sun that disrupt satellite communications, GPS navigation, and power grids worldwide. Early warning systems can give operators critical time to protect infrastructure.
-
-**SolarSentinel** is a real-time solar flare detection and prediction system built on data from ISRO's **Aditya-L1** — India's first dedicated solar observation satellite. It combines a physics-based detection pipeline with a deep learning forecasting model and a live monitoring dashboard.
-
----
-
-## Live Dashboard Preview
+Real-time solar flare detection and prediction pipeline using ISRO's Aditya-L1 satellite data — combining physics-based signal processing with a deep learning LSTM model and a live monitoring dashboard.
 
 ![Dashboard Screenshot](Dashboard_screenshot.png)
 
-> *Real-time replay of July 2024 Aditya-L1 data showing SoLEXS soft X-ray and HEL1OS hard X-ray flux with live nowcast alerts and ML forecast probability.*
+---
+
+## What This Does
+
+Solar flares are sudden bursts of radiation that disrupt satellite communications, GPS, and power grids. This system:
+
+- **Nowcasts** flares in real-time using SoLEXS (soft X-ray) and HEL1OS (hard X-ray) data from Aditya-L1
+- **Forecasts** flares 5–15 minutes before they peak using an LSTM + Attention neural network
+- **Visualizes** everything on a live dashboard with alerts, probability gauges, and scrolling event logs
 
 ---
 
-## Key Features
-
-| Feature | Description |
-|---|---|
-| **Multi-band Detection** | Processes 10 energy bands from HEL1OS (10–150 keV) + SoLEXS (1–30 keV) |
-| **Physics-based Pipeline** | 5-sigma Poisson significance filter + FRED morphological shape validation |
-| **LSTM Forecasting** | Deep learning model predicts flare probability 5–15 min ahead |
-| **Dynamic Lead Time** | Alert fires earlier as probability rises — not a fixed window |
-| **Live Dashboard** | Smooth Chart.js graphs, glowing alert system, rolling prediction cards |
-| **REST API Backend** | FastAPI server with 6 endpoints for real-time data streaming |
-| **Automated Event Log** | Detected flares logged with timestamp, significance, and severity class |
-
----
-
-## System Architecture
+## Project Structure
 
 ```
-ISRO PRADAN Portal (Aditya-L1 Level-1 FITS Data)
-              ↓
-    ┌─────────────────────────┐
-    │   Data Ingestion Layer  │  Astropy FITS parser
-    │   (23 columns, 3.5M rows│  Multi-band alignment
-    └────────────┬────────────┘
-                 ↓
-    ┌─────────────────────────┐
-    │  Statistical Triggering │  Poisson significance
-    │  (Noise Filter)         │  (O - B) / √B > 5σ
-    └────────────┬────────────┘
-                 ↓
-    ┌─────────────────────────┐
-    │ Morphological Filtering │  FRED profile check
-    │  (Shape Validator)      │  Multi-band confirmation
-    └────────────┬────────────┘
-                 ↓
-    ┌─────────────────────────┐
-    │  External Benchmarking  │  NASA DONKI API
-    │  (Ground Truth Labels)  │  GOES catalog matching
-    └────────────┬────────────┘
-                 ↓
-    ┌─────────────────────────┐
-    │   LSTM + Attention      │  26 features, 3 layers
-    │   Forecasting Model     │  300-row sliding window
-    └────────────┬────────────┘
-                 ↓
-    ┌─────────────────────────┐
-    │  FastAPI + Dashboard    │  Chart.js live graphs
-    │  (Real-time Interface)  │  Replay mode + alerts
-    └─────────────────────────┘
+Aditya-L1-Solar-Flare-Nowcasting-and-Forecasting-Model/
+│
+├── src/
+│   ├── data_ingrestion.py       # Step 1 — Load raw FITS files → master_data.csv
+│   ├── statistical_trigger.py  # Step 2 — Poisson significance filtering
+│   ├── morphological_filter.py # Step 3 — FRED shape validation → flare_catalog.csv
+│   ├── benchmarking.py         # Step 4 — GOES catalog matching & labeling
+│   ├── pipeline.py             # Run all 4 steps sequentially
+│   ├── nowcast.py              # Real-time flare detection engine
+│   ├── forecast.py             # LSTM model loader + predict()
+│   ├── server.py               # FastAPI backend (REST endpoints)
+│   └── forecast.ipynb          # Model training notebook (Jupyter)
+│
+├── dashboard/
+│   ├── index.html              # Main dashboard UI
+│   ├── style.css               # Dark space theme styling
+│   └── app.js                  # Live polling + Chart.js graphs
+│
+├── outputs/
+│   └── model_meta.json         # Model config, features, metrics
+│
+└── data/                       # (not tracked — download from PRADAN)
+    ├── HEL1OS_satalite_data/
+    └── SOLEXS_satalite_data/
 ```
 
 ---
 
-## Model Details
+## Pipeline Overview
+
+```
+Raw FITS Files (ISRO PRADAN Portal)
+        ↓
+data_ingrestion.py     →  master_data.csv      (3.5M rows, 23 bands)
+        ↓
+statistical_trigger.py →  triggered_data.csv   (Poisson 5σ filter)
+        ↓
+morphological_filter.py→  flare_catalog.csv    (66 flares detected)
+        ↓
+benchmarking.py        →  flare_catalog_labeled.csv  (GOES matched)
+        ↓
+forecast.ipynb          →  solar_flare_model.pth (LSTM trained)
+        ↓
+server.py + dashboard   →  Live monitoring dashboard
+```
+
+---
+
+## Physics Behind the Detection
+
+**Statistical Triggering (Poisson Significance)**
+
+X-ray photon detection is a counting process — discrete events that follow Poisson rather than Gaussian statistics.
+
+```
+Significance = (O - B) / √B
+
+O = observed counts, B = 5-min rolling background
+Threshold = 5σ  →  99.9% noise rejection
+```
+
+**Morphological Filtering (FRED Profile)**
+
+Real solar flares follow a Fast Rise Exponential Decay shape caused by magnetic reconnection (fast rise: 1–5 min) followed by plasma cooling (slow decay: 10–30 min). Cosmic ray hits and instrument glitches produce instantaneous spikes and are rejected.
+
+**Hardness Ratio**
+
+```
+Hardness Ratio = HEL1OS counts / SoLEXS counts
+
+Normal sun  →  ratio ~0.2 (thermal emission)
+Solar flare →  ratio >2.0  (non-thermal electrons)
+```
+
+The ratio separates thermal emission (always present from the quiet Sun) from non-thermal electron acceleration (only during flares) — a rising hardness ratio is a key precursor signature.
+
+---
+
+## ML Model
 
 | Property | Value |
 |---|---|
-| Architecture | SolarFlareLSTM (LSTM + Attention Mechanism) |
-| Input Features | 26 (raw flux + Poisson significance + hardness ratio + rate-of-change) |
-| Hidden Size | 256 neurons |
-| Layers | 3 stacked LSTM layers |
-| Training Window | 300 rows (~5 min of satellite data) |
-| Lead Time | 5–15 min dynamic (shortens as probability rises) |
-| Training Hardware | NVIDIA RTX 4060 (CUDA 12.1) |
-| Training Dataset | July 2024 Aditya-L1 data (~88K samples) |
+| Architecture | LSTM + Attention |
+| Input features | 26 (raw flux + Poisson significance + hardness ratio + rate-of-change) |
+| Hidden size | 256 |
+| Layers | 3 |
+| Window | 300 rows (~5 min history) |
+| Lead time | 5–15 min (dynamic, based on probability) |
+| Training data | July 2024 Aditya-L1 data (~88K samples) |
+| Training device | NVIDIA RTX 4060 (CUDA 12.1) |
 
-**Performance Metrics (July 25–31, 2024 test set):**
+**Metrics on test set (July 25–31, 2024):**
 
 | Metric | Value |
 |---|---|
 | HSS (Heidke Skill Score) | 0.317 |
 | TPR (True Positive Rate) | 23.9% |
 | FAR (False Alarm Rate) | 49.4% |
-| Flares Caught | 88 / 368 |
+| Flares caught | 88 / 368 |
+| Best threshold | 0.75 |
 
-> HSS > 0 indicates the model performs meaningfully better than random guessing. TPR is expected to improve significantly with more training data (currently 1 month; 6-month dataset retraining in progress).
+> HSS > 0 means the model performs meaningfully better than random guessing. TPR is expected to improve with more training data (currently 1 month; larger dataset retraining in progress).
 
 ---
 
-## Physics Behind the Detection
+## Data Source
 
-**Why Poisson statistics?**
-X-ray photon detection is a counting process — discrete events that follow Poisson rather than Gaussian distributions. Using `(O - B) / √B` gives a statistically valid significance measure that accounts for the natural variance in photon counts.
+Download Level-1 data from the **ISRO ISSDC PRADAN portal**:
+`https://pradan1.issdc.gov.in`
 
-**Why FRED filtering?**
-Real solar flares have a Fast Rise Exponential Decay profile caused by magnetic reconnection (fast rise: 1–5 min) followed by plasma cooling (slow decay: 10–30 min). Cosmic ray hits and instrument glitches produce instantaneous spikes and are rejected.
+**Required instruments:**
+- `HEL1OS` → Hard X-ray (10–150 keV) — folder: `data/HEL1OS_satalite_data/2024/07/`
+- `SoLEXS` → Soft X-ray (1–30 keV) — folder: `data/SOLEXS_satalite_data/`
 
-**Why Hardness Ratio?**
-The ratio of Hard X-ray to Soft X-ray counts separates thermal emission (always present from the quiet Sun) from non-thermal electron acceleration (only during flares). A rising hardness ratio is a key precursor signature.
+Supplementary: NASA DONKI API (auto-downloaded by `benchmarking.py`)
+
+---
+
+## Setup
+
+### Requirements
+
+- Python 3.14 (main environment)
+- Python 3.11 (GPU training environment — `gpu_env`)
+- NVIDIA GPU with CUDA (for training; CPU works for inference)
+
+### Install
+
+```bash
+# Main environment
+pip install fastapi uvicorn pandas numpy astropy scikit-learn plotly streamlit
+
+# GPU training environment (Python 3.11)
+py -3.11 -m venv gpu_env
+gpu_env\Scripts\activate
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install pandas numpy astropy scikit-learn matplotlib jupyter ipykernel
+python -m ipykernel install --user --name gpu_env --display-name "Python 3.11 GPU"
+```
+
+---
+
+## Running the Pipeline
+
+### Step 1 — Process satellite data
+
+```bash
+python src/pipeline.py
+```
+
+Runs all 4 steps and generates:
+- `outputs/master_data.csv`
+- `outputs/triggered_data.csv`
+- `outputs/flare_catalog.csv`
+- `outputs/flare_catalog_labeled.csv`
+
+To reprocess everything from scratch:
+```bash
+python src/pipeline.py --force
+```
+
+### Step 2 — Train the model (optional — pretrained weights not included)
+
+Open `src/forecast.ipynb` in VS Code with the `Python 3.11 GPU` kernel and run all cells.
+
+Outputs:
+- `outputs/solar_flare_model.pth`
+- `outputs/scaler.pkl`
+- `outputs/model_meta.json`
+
+### Step 3 — Launch the dashboard
+
+```bash
+# Activate GPU environment (needed for LSTM inference)
+gpu_env\Scripts\activate
+
+# Start FastAPI server
+python src/server.py
+```
+
+Open browser: `http://localhost:8000`
+
+---
+
+## Dashboard Features
+
+- **Live graphs** — SoLEXS and HEL1OS X-ray flux with logarithmic Y-axis and scrolling time window
+- **Now line** — white vertical line showing current replay position
+- **Nowcast panel** — real-time flare detection with glowing alert on detection
+- **Forecast panel** — ML probability gauge (0–100%), dynamic lead time sentence (e.g. "In ~11 min — around 13:23:00 UTC")
+- **Rolling detection cards** — upcoming flares with intensity-based red coloring
+- **Live detected flares** — running log of nowcasted events
+- **Event database** — full flare catalog sorted by significance
+
+> Dashboard runs in replay mode using July 2024 Aditya-L1 data. Use the timeline slider to jump to any point. July 16, 2024 (~idx 1,975,000) has the strongest detected flare (4025σ).
+
+---
+
+## API Endpoints
+
+| Endpoint | Method | Returns |
+|---|---|---|
+| `/api/data` | GET | Current flux values, timestamp, progress |
+| `/api/nowcast` | GET | Alert status, flare class, significance |
+| `/api/forecast` | GET | ML probability, level, upcoming flares |
+| `/api/graph` | GET | Last 600 data points for charts |
+| `/api/catalog` | GET | Top 20 detected flares |
+| `/api/state` | GET | Playing status, speed, position |
+| `/api/play` | POST | Start replay |
+| `/api/pause` | POST | Pause replay |
+| `/api/reset` | POST | Reset to start |
+| `/api/speed/{n}` | POST | Set replay speed |
+| `/api/seek/{idx}` | POST | Jump to position |
 
 ---
 
 ## Tech Stack
 
-| Layer | Technologies |
+| Layer | Technology |
 |---|---|
-| Data Processing | Python, Astropy, Pandas, NumPy, SciPy |
-| ML Framework | PyTorch (CUDA), scikit-learn |
+| Data processing | Python, Astropy, Pandas, NumPy |
+| Physics pipeline | SciPy, custom Poisson + FRED algorithms |
+| ML model | PyTorch (CUDA), LSTM + Attention |
+| Training | NVIDIA RTX 4060, CUDA 12.1 |
 | Backend | FastAPI, Uvicorn |
 | Frontend | HTML5, CSS3, JavaScript, Chart.js |
-| Data Sources | ISRO ISSDC PRADAN (primary) |
-| Dev Environment | VS Code, Jupyter Notebook, Git |
+| External data | NASA DONKI API, ISRO ISSDC PRADAN |
+| Dev environment | VS Code, Jupyter Notebook, Git |
 
 ---
 
-## Hackathon Context
+## Known Limitations
 
-**Event:** ISRO Bhartiya Antariksh Hackathon 2026
-**Problem Statement 15:** Forecasting and/or Nowcasting of Solar Flares using combined Soft and Hard X-ray data from Aditya-L1
+- Model trained on July 2024 only (1 month) — more data will improve TPR significantly
+- GOES calibration not available for SoLEXS counts — physics-based classification used instead
+- Replay mode only — real-time PRADAN live feed not publicly available
 
-**Evaluation Criteria:**
-- Detection of low and high class flares ✅
-- High True Positive Rate + Low False Alarm Rate ✅
-- Lead time of predictions (5–15 min dynamic) ✅
+---
 
-
-*Full source code and implementation details will be released publicly after the hackathon concludes.*
+Built for ISRO Bhartiya Antariksh Hackathon 2026, Problem Statement 15 (Nowcasting/Forecasting of Solar Flares from Aditya-L1 X-ray data).

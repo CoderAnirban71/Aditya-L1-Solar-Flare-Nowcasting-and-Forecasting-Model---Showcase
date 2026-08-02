@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solar Flare Monitor — ISRO Aditya-L1</title>
+  <link rel="stylesheet" href="/dashboard/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+</head>
+
+<body>
+
+  <!-- SIDEBAR (empty, logo only) -->
+  <div class="sidebar">
+    <img class="sidebar-logo"
+      src="https://upload.wikimedia.org/wikipedia/commons/b/bd/Indian_Space_Research_Organisation_Logo.svg" alt="ISRO">
+  </div>
+
+  <div class="main">
+
+    <!-- HEADER -->
+    <div class="header">
+      <div class="header-title">
+        SOLAR FLARE MONITORING &amp; FORECASTING DASHBOARD — ISRO ADITYA-L1 MISSION
+      </div>
+      <div class="header-right">
+        <span class="utc-clock" id="utc-clock">UTC --:--:--</span>
+        <span class="hackathon-badge">🚀 BHARTIYA ANTARIKSH HACKATHON</span>
+      </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="controls-bar">
+      <button class="ctrl-btn" id="btn-play" onclick="togglePlay()">▶ Play</button>
+      <button class="ctrl-btn" onclick="resetReplay()">⏮ Reset</button>
+      <label class="ctrl-label">Speed
+        <select id="speed-select" onchange="setSpeed(this.value)">
+          <option value="1">1x</option>
+          <option value="10">10x</option>
+          <option value="30">30x</option>
+          <option value="60" selected>60x</option>
+          <option value="120">120x</option>
+          <option value="300">300x</option>
+          <option value="600">600x</option>
+        </select>
+      </label>
+      <label class="ctrl-label" style="flex:1">
+        Timeline
+        <input type="range" id="seek" min="1000" max="3567267" value="1000" step="500" oninput="seekTo(this.value)">
+      </label>
+      <span class="ctrl-progress" id="ctrl-progress">0.0%</span>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <!-- GRAPHS -->
+      <div class="graphs-col">
+        <div class="graph-card">
+          <div class="graph-hdr">
+            SoLEXS <span class="graph-sub">SOFT X-RAY FLUX</span>
+            <span class="graph-live" id="soft-live">-- cts/s</span>
+          </div>
+          <div class="chart-wrap"><canvas id="softChart"></canvas></div>
+        </div>
+        <div class="graph-card">
+          <div class="graph-hdr">
+            HEL1OS <span class="graph-sub">HARD X-RAY FLUX</span>
+            <span class="graph-live" id="hard-live">-- cts/s</span>
+          </div>
+          <div class="chart-wrap"><canvas id="hardChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- ALERTS PANEL -->
+      <div class="alerts-col">
+        <div class="alerts-header">⚡ LIVE ANALYSIS &amp; ALERTS</div>
+
+        <!-- MAIN ALERT BOX (square) -->
+        <div class="alert-square" id="alert-square">
+          <div class="alert-bulb" id="alert-bulb">💡</div>
+          <div class="alert-cur">CURRENT STATUS:</div>
+          <div class="alert-level-txt" id="alert-level-txt">QUIET</div>
+        </div>
+
+        <!-- NOWCAST -->
+        <div class="info-block">
+          <div class="block-title">NOWCAST (REAL-TIME DETECTION)</div>
+          <div class="info-row"><span>Flare Class</span>
+            <span class="val orange" id="nc-class">--</span>
+          </div>
+          <div class="info-row"><span>Confidence</span>
+            <span class="val" id="nc-conf">--%</span>
+          </div>
+          <div class="info-row"><span>Detection Time</span>
+            <span class="val" id="nc-time">--</span>
+          </div>
+          <div class="info-row"><span>Significance</span>
+            <span class="val" id="nc-sig">--</span>
+          </div>
+          <div class="info-row"><span>Bands Triggered</span>
+            <span class="val" id="nc-bands">--</span>
+          </div>
+        </div>
+
+        <!-- FORECAST -->
+        <div class="info-block">
+          <div class="block-title">FORECAST (PREDICTION)</div>
+          <div class="forecast-row">
+            <canvas id="gauge" width="130" height="76"></canvas>
+            <div class="forecast-info">
+              <div class="info-row"><span>Forecast Class</span>
+                <span class="val orange" id="fc-class">--</span>
+              </div>
+              <div class="info-row"><span>Probability</span>
+                <span class="val" id="fc-prob">--%</span>
+              </div>
+              <div class="info-row"><span>Confidence</span>
+                <span class="val" id="fc-conf">--</span>
+              </div>
+            </div>
+          </div>
+          <!-- Dynamic lead time sentence -->
+          <div class="lead-sentence" id="lead-sentence">
+            Awaiting data buffer...
+          </div>
+
+          <!-- ROLLING CARDS -->
+          <div class="upcoming-title">UPCOMING DETECTIONS</div>
+          <div class="rolling-viewport">
+            <div class="rolling-track" id="rolling-track">
+              <div class="rolling-empty">No flares in next 30 min</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end content -->
+
+    <!-- BOTTOM -->
+    <div class="bottom">
+
+      <!-- LEFT: Live detected flares -->
+      <div class="live-log">
+        <div class="bottom-title">🔴 LIVE DETECTED FLARES</div>
+        <div class="live-list" id="live-list">
+          <div class="live-empty">Monitoring...</div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Full catalog -->
+      <div class="catalog-log">
+        <div class="bottom-title">📋 AUTOMATED EVENT LOG (DATABASE)</div>
+        <div class="table-wrap">
+          <table class="ev-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Start UTC</th>
+                <th>Peak UTC</th>
+                <th>Dur (s)</th>
+                <th>Bands</th>
+                <th>Sig (σ)</th>
+                <th>H/S Ratio</th>
+                <th>Class</th>
+              </tr>
+            </thead>
+            <tbody id="ev-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- end bottom -->
+
+  </div><!-- end main -->
+
+  <script src="/dashboard/app.js"></script>
+</body>
+
+</html>
